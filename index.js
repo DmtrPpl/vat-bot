@@ -335,19 +335,19 @@ app.post("/webhook", async (req, res) => {
     const Y = vatTotalsYear(state.entries, yyyy);
 
     const out = ["✅ *Додано записи:*"];
+    out.push("");
     added.forEach((e) => {
     const icon = e.type === "income" ? "🟢 Дохід" : "🔴 Витрата";
         out.push(
             [
-            `${icon} • 📅 ${e.date}`,
+            `${icon}  •  📅 ${e.date}`,
             `💰 Сума: ${e.gross.toFixed(2)} ${e.currency}`,
-            `⚖️ ПДВ: ${e.vat.toFixed(2)}   •   Категорія: ${e.category}`,
+            `⚖️ ПДВ: ${e.vat.toFixed(2)}  •  Категорія: ${e.category}`,
             `✍️ Опис: ${e.description || "—"}`,
             `` // порожній рядок між записами
             ].join("\n")
         );
     });
-    out.push("");
     out.push(
         [
             `📊 *Місяць ${yyyymm}*`,
