@@ -334,124 +334,55 @@ app.post("/webhook", async (req, res) => {
     const M = vatTotalsMonth(state.entries, yyyymm);
     const Y = vatTotalsYear(state.entries, yyyy);
 
-// ——— APPLE-STYLE / ELEGANT MESSAGING ———
+    // ——— НОВИЙ АКУРАТНИЙ ВИВІД ———
 const num = (n) => Number(n || 0).toFixed(2);
-const nbsp = "\u00A0";
-const thinsp = "\u202F";
 
-const dot = "·";
-const hrBold = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-const hrSoft = "────────────────────────────";
+const entryCards = added
+  .map((e) => {
+    const emoji = e.type === "income" ? "🟢" : "🔴";
+    const label = e.type === "income" ? "ДОХІД" : "ВИТРАТА";
+    return [
+      `${emoji} *${label}* • \`${e.date}\``,
+      `💶 Сума: *\`${num(e.gross)} ${e.currency}\`*`,
+      `🧾 ПДВ: \`${num(e.vat)}\`   •   Категорія: \`${e.category}\``,
+      e.description ? `✍️ Опис: _${e.description}_` : `✍️ Опис: _—_`,
+    ].join("\n");
+  })
+  .join("\n\n");
 
-const boxTop    = "╭──────────────────────────╮";
-const boxMid    = "│";
-const boxBottom = "╰──────────────────────────╯";
+const monthSummary = [
+  `📊 *Місяць ${yyyymm}*`,
+  "— *Оборот*",
+  `   доходи \`${num(M.incGross)}\` • витрати \`${num(M.expGross)}\` = *\`${num(M.profitGross)}\`*`,
+  "— *ПДВ*",
+  `   зібрано \`${num(M.incVAT)}\` • сплачено \`${num(M.expVAT)}\` = *\`${num(M.vatDue)}\`*`,
+  `— *Чистий після ПДВ:* *\`${num(M.netAfterVAT)}\`*`,
+].join("\n");
 
-const money = (amount, ccy = "€") => `${ccy}${thinsp}${num(amount)}`;
-
-// ——— Pills / Badges
-const pill = (text, tone = "neutral") => {
-  const toneMap = {
-    good:  "🟢",
-    bad:   "🔴",
-    warn:  "🟡",
-    info:  "🔷",
-    neutral: "⚪️",
-  };
-  return `${toneMap[tone] || toneMap.neutral}${nbsp}${text}`;
-};
-
-// ——— Labeled line (consistent pattern)
-const line = (emoji, label, value, boldValue = false) =>
-  `${emoji}${nbsp}${label}${nbsp}—${nbsp}${boldValue ? `*${value}*` : value}`;
-
-// ——— Entry cards
-const entryCards = (added && added.length)
-  ? added.map((e) => {
-      const isInc = e.type === "income";
-      const badge = isInc ? pill("Дохід", "good") : pill("Витрата", "bad");
-      const ccy = e.currency || "€";
-
-      const body = [
-        // header row
-        `${badge}${nbsp}${dot}${nbsp}${e.date}`,
-        line("💶", "Сума",          money(e.gross, ccy), true),
-        line("🧾", "ПДВ",           money(e.vat, ccy)),
-        line("📂", "Категорія",     e.category || "—"),
-        line("✍️", "Опис",          e.description || "—"),
-      ];
-
-      return [
-        boxTop,
-        `${boxMid} ${body[0].padEnd(26, " ")} ${boxMid}`,
-        `${boxMid} ${body[1].padEnd(26, " ")} ${boxMid}`,
-        `${boxMid} ${body[2].padEnd(26, " ")} ${boxMid}`,
-        `${boxMid} ${body[3].padEnd(26, " ")} ${boxMid}`,
-        `${boxMid} ${body[4].padEnd(26, " ")} ${boxMid}`,
-        boxBottom,
-      ].join("\n");
-    }).join(`\n\n`)
-  : "_(Записів не додано)_";
-
-// ——— Summary block (Month / Year)
-const makeSummaryBox = (titleEmoji, titleText, S, showNetCaption = "Чистий після ПДВ") => {
-  const rows = [
-    `${titleEmoji}${nbsp}*${titleText}*`,
-    line("📥", "Дохід",     money(S.incGross), true),
-    line("📤", "Витрати",   money(S.expGross), true),
-    hrSoft,
-    line("💼", "Прибуток",  money(S.profitGross), true),
-    hrSoft,
-    line("🟢", "Зібрано ПДВ", money(S.incVAT)),
-    line("🔴", "Сплачено ПДВ", money(S.expVAT)),
-    line("⚖️", "До сплати ПДВ", money(S.vatDue), true),
-    line("✅", showNetCaption, money(S.netAfterVAT), true),
-  ];
-
-  return [
-    boxTop,
-    `${boxMid} ${rows[0].padEnd(26, " ")} ${boxMid}`,
-    `${boxMid} ${rows[1].padEnd(26, " ")} ${boxMid}`,
-    `${boxMid} ${rows[2].padEnd(26, " ")} ${boxMid}`,
-    `${boxMid} ${"".padEnd(26, "─")} ${boxMid}`,
-    `${boxMid} ${rows[4].padEnd(26, " ")} ${boxMid}`,
-    `${boxMid} ${"".padEnd(26, "─")} ${boxMid}`,
-    `${boxMid} ${rows[6].padEnd(26, " ")} ${boxMid}`,
-    `${boxMid} ${rows[7].padEnd(26, " ")} ${boxMid}`,
-    `${boxMid} ${rows[8].padEnd(26, " ")} ${boxMid}`,
-    `${boxMid} ${rows[9].padEnd(26, " ")} ${boxMid}`,
-    boxBottom,
-  ].join("\n");
-};
-
-// ——— Build message
-const monthBox = makeSummaryBox("📊", yyyymm, M, "Чистий після ПДВ");
-const yearBox  = makeSummaryBox("📈", String(yyyy), Y, "Чистий прибуток після ПДВ");
-
-const header = [
-  "✅ *Записи додано*",
-  hrBold,
+const yearSummary = [
+  `📊 *Рік ${yyyy}*`,
+  "— *Оборот*",
+  `   доходи \`${num(Y.incGross)}\` • витрати \`${num(Y.expGross)}\` = *\`${num(Y.profitGross)}\`*`,
+  "— *ПДВ*",
+  `   зібрано \`${num(Y.incVAT)}\` • сплачено \`${num(Y.expVAT)}\` = *\`${num(Y.vatDue)}\`*`,
+  `— *Чистий після ПДВ:* *\`${num(Y.netAfterVAT)}\`*`,
 ].join("\n");
 
 const message = [
-  header,
+  "✅ *Додано записи:*",
+  "",
   entryCards,
   "",
-  monthBox,
+  monthSummary,
   "",
-  yearBox
+  yearSummary,
 ].join("\n");
 
-try {
-  await tg("sendMessage", {
-    chat_id: chatId,
-    text: message,
-    parse_mode: "Markdown",
-  });
-} catch (err) {
-  console.error("❌ sendMessage error:", err?.response?.data || err?.message || err);
-}
-
+await tg("sendMessage", {
+  chat_id: chatId,
+  text: message,
+  parse_mode: "Markdown",
+});
 
 
     res.sendStatus(200);
