@@ -334,56 +334,34 @@ app.post("/webhook", async (req, res) => {
     const M = vatTotalsMonth(state.entries, yyyymm);
     const Y = vatTotalsYear(state.entries, yyyy);
 
-    // ——— НОВИЙ АКУРАТНИЙ ВИВІД ———
-const num = (n) => Number(n || 0).toFixed(2);
+    const out = ["✅ *Додано записи:*"];
+    added.forEach((e) => {
+      out.push(
+        `${e.date} • ${e.type === "income" ? "ДОХІД" : "ВИТРАТА"} ${
+          e.gross
+        } ${e.currency} (${e.category}, ПДВ ${e.vat}) — ${e.description}`
+      );
+    });
+    out.push("");
+    out.push(
+        [
+            `📊 *Місяць ${yyyymm}*`,
+            `— Оборот: доходи ${M.incGross} − витрати ${M.expGross} = *${M.profitGross}*`,
+            `— ПДВ: зібрано ${M.incVAT} − сплачено ${M.expVAT} = *${M.vatDue}*`,
+            `— Чистий після ПДВ: *${M.netAfterVAT}*`,
+            ``,
+            `📊 *Рік ${yyyy}*`,
+            `— Оборот: доходи ${Y.incGross} − витрати ${Y.expGross} = *${Y.profitGross}*`,
+            `— ПДВ: зібрано ${Y.incVAT} − сплачено ${Y.expVAT} = *${Y.vatDue}*`,
+            `— Чистий після ПДВ: *${Y.netAfterVAT}*`,
+        ].join("\n")
+    );
 
-const entryCards = added
-  .map((e) => {
-    const emoji = e.type === "income" ? "🟢" : "🔴";
-    const label = e.type === "income" ? "ДОХІД" : "ВИТРАТА";
-    return [
-      `${emoji} *${label}* • \`${e.date}\``,
-      `💶 Сума: *\`${num(e.gross)} ${e.currency}\`*`,
-      `🧾 ПДВ: \`${num(e.vat)}\`   •   Категорія: \`${e.category}\``,
-      e.description ? `✍️ Опис: _${e.description}_` : `✍️ Опис: _—_`,
-    ].join("\n");
-  })
-  .join("\n\n");
-
-const monthSummary = [
-  `📊 *Місяць ${yyyymm}*`,
-  "— *Оборот*",
-  `   доходи \`${num(M.incGross)}\` • витрати \`${num(M.expGross)}\` = *\`${num(M.profitGross)}\`*`,
-  "— *ПДВ*",
-  `   зібрано \`${num(M.incVAT)}\` • сплачено \`${num(M.expVAT)}\` = *\`${num(M.vatDue)}\`*`,
-  `— *Чистий після ПДВ:* *\`${num(M.netAfterVAT)}\`*`,
-].join("\n");
-
-const yearSummary = [
-  `📊 *Рік ${yyyy}*`,
-  "— *Оборот*",
-  `   доходи \`${num(Y.incGross)}\` • витрати \`${num(Y.expGross)}\` = *\`${num(Y.profitGross)}\`*`,
-  "— *ПДВ*",
-  `   зібрано \`${num(Y.incVAT)}\` • сплачено \`${num(Y.expVAT)}\` = *\`${num(Y.vatDue)}\`*`,
-  `— *Чистий після ПДВ:* *\`${num(Y.netAfterVAT)}\`*`,
-].join("\n");
-
-const message = [
-  "✅ *Додано записи:*",
-  "",
-  entryCards,
-  "",
-  monthSummary,
-  "",
-  yearSummary,
-].join("\n");
-
-await tg("sendMessage", {
-  chat_id: chatId,
-  text: message,
-  parse_mode: "Markdown",
-});
-
+    await tg("sendMessage", {
+      chat_id: chatId,
+      text: out.join("\n"),
+      parse_mode: "Markdown",
+    });
 
     res.sendStatus(200);
   } catch (err) {
