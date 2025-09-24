@@ -335,18 +335,16 @@ app.post("/webhook", async (req, res) => {
     const Y = vatTotalsYear(state.entries, yyyy);
 
 // ——— APPLE-STYLE CLEAN OUTPUT ———
-// Мінімалізм, чіткі секції, акуратні картки й вирівняні ключі
-
 const num = (n) => Number(n || 0).toFixed(2);
 const nbsp = "\u00A0";
 const thinsp = "\u202F";
-const dot = "·";
 const divider = "━━━━━━━━━━━━━━━━━━━━━━━━";
 const softDivider = "────────────────────────";
+const boldDivider = "━━━━━━━━━━━━━━━";
 
 const money = (amount, ccy = "€") => `${ccy}${thinsp}${num(amount)}`;
 
-// Картки доданих записів (пронумеровані)
+// Картки доданих записів
 const entryCards = added.length
   ? added
       .map((e, i) => {
@@ -356,22 +354,22 @@ const entryCards = added.length
         const ccy = e.currency || "€";
 
         return [
-          `${badge}${nbsp}*${label}*${nbsp}${dot}${nbsp}#${i + 1}`,
-          `📅\n${e.date}`,
+          `${badge}${nbsp}*${label}* ${dot} ${e.date}`,
           `💶 Сума — *${money(e.gross, ccy)}*`,
           `🧾 ПДВ — ${money(e.vat, ccy)}`,
           `📂 Категорія — ${e.category || "—"}`,
-          `✍️ Опис — ${e.description ? e.description : "—"}`
+          `✍️ Опис — ${e.description || "—"}`
         ].join("\n");
       })
       .join(`\n\n${softDivider}\n\n`)
   : "_(Записів не додано)_";
 
-// Зведення за місяць (чіткі заголовки, великі літери)
+// Підсумок за місяць
 const monthSummary = [
-  `📊 *Місяць ${yyyymm}*`,
+  `📊 *${yyyymm}*`,
   `Дохід — *${money(M.incGross)}*`,
   `Витрати — *${money(M.expGross)}*`,
+  boldDivider,
   `Прибуток — *${money(M.profitGross)}*`,
   softDivider,
   `Зібрано ПДВ — ${money(M.incVAT)}`,
@@ -380,11 +378,12 @@ const monthSummary = [
   `Чистий після ПДВ — *${money(M.netAfterVAT)}*`
 ].join("\n");
 
-// Зведення за рік
+// Підсумок за рік
 const yearSummary = [
-  `📈 *Рік ${yyyy}*`,
+  `📈 *${yyyy}*`,
   `Дохід — *${money(Y.incGross)}*`,
   `Витрати — *${money(Y.expGross)}*`,
+  boldDivider,
   `Прибуток — *${money(Y.profitGross)}*`,
   softDivider,
   `Зібрано ПДВ — ${money(Y.incVAT)}`,
@@ -393,16 +392,13 @@ const yearSummary = [
   `Чистий прибуток після ПДВ — *${money(Y.netAfterVAT)}*`
 ].join("\n");
 
-// Фінальне повідомлення
 const message = [
   "✅ *Записи додано*",
   divider,
   entryCards,
   "",
-  "🗓️ *Зведення за місяць*",
   monthSummary,
   "",
-  "🗂️ *Зведення за рік*",
   yearSummary
 ].join("\n");
 
