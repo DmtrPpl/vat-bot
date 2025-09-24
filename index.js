@@ -132,7 +132,6 @@ async function enrichLineWithAI(line, defaults) {
   let vat_applicable =
     typeof data.vat_applicable === "boolean" ? data.vat_applicable : null;
 
-  // ручні прапорці
   if (saidWithVAT) {
     vat_applicable = true;
     amount_type = "gross";
@@ -243,7 +242,6 @@ app.post("/webhook", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    // ===== /balance (замість /vat), вміст незмінний =====
     if (text.startsWith("/balance")) {
       const now = new Date();
       const yyyymm = `${now.getFullYear()}-${String(
@@ -255,20 +253,19 @@ app.post("/webhook", async (req, res) => {
 
       const msg = `
 📊 *Місяць ${yyyymm}*
-— Оборот: доходи ${M.incGross} − витрати ${M.expGross} = *${M.profitGross}*
-— ПДВ: зібрано ${M.incVAT} − сплачено ${M.expVAT} = *${M.vatDue}*
-— Чистий після ПДВ: *${M.netAfterVAT}*
+— Оборот: доходи ${M.incGross.toFixed(2)} − витрати ${M.expGross.toFixed(2)} = *${M.profitGross.toFixed(2)}*
+— ПДВ: зібрано ${M.incVAT.toFixed(2)} − сплачено ${M.expVAT.toFixed(2)} = *${M.vatDue.toFixed(2)}*
+— Чистий після ПДВ: *${M.netAfterVAT.toFixed(2)}*
 
 📊 *Рік ${yyyy}*
-— Оборот: доходи ${Y.incGross} − витрати ${Y.expGross} = *${Y.profitGross}*
-— ПДВ: зібрано ${Y.incVAT} − сплачено ${Y.expVAT} = *${Y.vatDue}*
-— Чистий після ПДВ: *${Y.netAfterVAT}*
+— Оборот: доходи ${Y.incGross.toFixed(2)} − витрати ${Y.expGross.toFixed(2)} = *${Y.profitGross.toFixed(2)}*
+— ПДВ: зібрано ${Y.incVAT.toFixed(2)} − сплачено ${Y.expVAT.toFixed(2)} = *${Y.vatDue.toFixed(2)}*
+— Чистий після ПДВ: *${Y.netAfterVAT.toFixed(2)}*
 `.trim();
       await tg("sendMessage", { chat_id: chatId, text: msg, parse_mode: "Markdown" });
       return res.sendStatus(200);
     }
 
-    // ===== /vatmonth [YYYY-MM] =====
     if (text.startsWith("/vatmonth")) {
       const m = text.match(/^\/vatmonth(?:\s+(\d{4}-\d{2}))?$/i);
       let yyyymm;
@@ -279,16 +276,14 @@ app.post("/webhook", async (req, res) => {
         yyyymm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       }
       const M = vatTotalsMonth(state.entries, yyyymm);
-      // Показуємо загальний податок (ПДВ до сплати)
       await tg("sendMessage", {
         chat_id: chatId,
         parse_mode: "Markdown",
-        text: `⚖️ *ПДВ за ${yyyymm}:* *${M.vatDue}*`,
+        text: `⚖️ *ПДВ за ${yyyymm}:* *${M.vatDue.toFixed(2)}*`,
       });
       return res.sendStatus(200);
     }
 
-    // ===== /vatyear [YYYY] =====
     if (text.startsWith("/vatyear")) {
       const m = text.match(/^\/vatyear(?:\s+(\d{4}))?$/i);
       let yyyy;
@@ -299,16 +294,14 @@ app.post("/webhook", async (req, res) => {
         yyyy = String(now.getFullYear());
       }
       const Y = vatTotalsYear(state.entries, yyyy);
-      // Показуємо загальний податок (ПДВ до сплати)
       await tg("sendMessage", {
         chat_id: chatId,
         parse_mode: "Markdown",
-        text: `⚖️ *ПДВ за ${yyyy} рік:* *${Y.vatDue}*`,
+        text: `⚖️ *ПДВ за ${yyyy} рік:* *${Y.vatDue.toFixed(2)}*`,
       });
       return res.sendStatus(200);
     }
 
-    // add lines
     const lines = quickLines(text);
     if (lines.length === 0) {
       await tg("sendMessage", {
@@ -337,29 +330,30 @@ app.post("/webhook", async (req, res) => {
     const out = ["✅ *Додано записи:*"];
     out.push("");
     added.forEach((e) => {
-    const icon = e.type === "income" ? "🟢 Дохід" : "🔴 Витрата";
-        out.push(
-            [
-            `${icon}  •  📅 ${e.date}`,
-            `💰 Сума: ${e.gross.toFixed(2)} ${e.currency}`,
-            `⚖️ ПДВ: ${e.vat.toFixed(2)}  •  Категорія: ${e.category}`,
-            `✍️ Опис: ${e.description || "—"}`,
-            `` // порожній рядок між записами
-            ].join("\n")
-        );
+      const icon = e.type === "income" ? "🟢 Дохід" : "🔴 Витрата";
+      out.push(
+        [
+          `${icon}   •   📅 ${e.date}`,
+          `💰 Сума: ${e.gross.toFixed(2)} ${e.currency}`,
+          `⚖️ ПДВ: ${e.vat.toFixed(2)}`,
+          `📁 Категорія: ${e.category}`,
+          `✍️ Опис: ${e.description || "—"}`,
+          ``
+        ].join("\n")
+      );
     });
     out.push(
-        [
-            `📊 *Місяць ${yyyymm}*`,
-            `— Оборот: доходи ${M.incGross} − витрати ${M.expGross} = *${M.profitGross}*`,
-            `— ПДВ: зібрано ${M.incVAT} − сплачено ${M.expVAT} = *${M.vatDue}*`,
-            `— Чистий після ПДВ: *${M.netAfterVAT}*`,
-            ``,
-            `📊 *Рік ${yyyy}*`,
-            `— Оборот: доходи ${Y.incGross} − витрати ${Y.expGross} = *${Y.profitGross}*`,
-            `— ПДВ: зібрано ${Y.incVAT} − сплачено ${Y.expVAT} = *${Y.vatDue}*`,
-            `— Чистий після ПДВ: *${Y.netAfterVAT}*`,
-        ].join("\n")
+      [
+        `📊 *Місяць ${yyyymm}*`,
+        `— Оборот: доходи ${M.incGross.toFixed(2)} − витрати ${M.expGross.toFixed(2)} = *${M.profitGross.toFixed(2)}*`,
+        `— ПДВ: зібрано ${M.incVAT.toFixed(2)} − сплачено ${M.expVAT.toFixed(2)} = *${M.vatDue.toFixed(2)}*`,
+        `— Чистий після ПДВ: *${M.netAfterVAT.toFixed(2)}*`,
+        ``,
+        `📊 *Рік ${yyyy}*`,
+        `— Оборот: доходи ${Y.incGross.toFixed(2)} − витрати ${Y.expGross.toFixed(2)} = *${Y.profitGross.toFixed(2)}*`,
+        `— ПДВ: зібрано ${Y.incVAT.toFixed(2)} − сплачено ${Y.expVAT.toFixed(2)} = *${Y.vatDue.toFixed(2)}*`,
+        `— Чистий після ПДВ: *${Y.netAfterVAT.toFixed(2)}*`,
+      ].join("\n")
     );
 
     await tg("sendMessage", {
