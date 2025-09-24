@@ -230,8 +230,8 @@ app.post("/webhook", async (req, res) => {
 
 Команди:
 /balance — Загальні дані доходу
-/vatmonth [YYYY-MM] — Підсумок ПДВ за поточний або вказаний місяць (/vatmonth 2025-09)
-/vatyear [YYYY] — Підсумок ПДВ за поточний або вказаний рік (/vatyear 2025)
+/vatmonth [YYYY-MM] — Підсумок ПДВ за поточний або вказаний місяць
+/vatyear [YYYY] — Підсумок ПДВ за поточний або вказаний рік
 /reset — Очистити всі збережені дані`,
       });
       return res.sendStatus(200);
@@ -283,7 +283,7 @@ app.post("/webhook", async (req, res) => {
       await tg("sendMessage", {
         chat_id: chatId,
         parse_mode: "Markdown",
-        text: `💰 *ПДВ за ${yyyymm}:* *${M.vatDue}*`,
+        text: `⚖️ *ПДВ за ${yyyymm}:* *${M.vatDue}*`,
       });
       return res.sendStatus(200);
     }
@@ -303,7 +303,7 @@ app.post("/webhook", async (req, res) => {
       await tg("sendMessage", {
         chat_id: chatId,
         parse_mode: "Markdown",
-        text: `💰 *ПДВ за ${yyyy} рік:* *${Y.vatDue}*`,
+        text: `⚖️ *ПДВ за ${yyyy} рік:* *${Y.vatDue}*`,
       });
       return res.sendStatus(200);
     }
@@ -336,11 +336,16 @@ app.post("/webhook", async (req, res) => {
 
     const out = ["✅ *Додано записи:*"];
     added.forEach((e) => {
-      out.push(
-        `${e.date} • ${e.type === "income" ? "ДОХІД" : "ВИТРАТА"} ${
-          e.gross
-        } ${e.currency} (${e.category}, ПДВ ${e.vat}) — ${e.description}`
-      );
+    const icon = e.type === "income" ? "🟢 Дохід" : "🔴 Витрата";
+        out.push(
+            [
+            `${icon} • 📅 ${e.date}`,
+            `💰 Сума: ${e.gross.toFixed(2)} ${e.currency}`,
+            `⚖️ ПДВ: ${e.vat.toFixed(2)}   •   Категорія: ${e.category}`,
+            `✍️ Опис: ${e.description || "—"}`,
+            `` // порожній рядок між записами
+            ].join("\n")
+        );
     });
     out.push("");
     out.push(
