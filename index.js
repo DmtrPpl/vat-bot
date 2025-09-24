@@ -334,81 +334,119 @@ app.post("/webhook", async (req, res) => {
     const M = vatTotalsMonth(state.entries, yyyymm);
     const Y = vatTotalsYear(state.entries, yyyy);
 
-// ——— APPLE-STYLE CLEAN OUTPUT ———
+// ——— APPLE-STYLE / ELEGANT MESSAGING ———
 const num = (n) => Number(n || 0).toFixed(2);
 const nbsp = "\u00A0";
 const thinsp = "\u202F";
-const divider = "━━━━━━━━━━━━━━━━━━━━━━━━";
-const softDivider = "────────────────────────";
-const boldDivider = "━━━━━━━━━━━━━━━";
-const dot = "·"; // ← додано: символ-розділювач
+
+const dot = "·";
+const hrBold = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+const hrSoft = "────────────────────────────";
+
+const boxTop    = "╭──────────────────────────╮";
+const boxMid    = "│";
+const boxBottom = "╰──────────────────────────╯";
 
 const money = (amount, ccy = "€") => `${ccy}${thinsp}${num(amount)}`;
 
-// Картки доданих записів
-const entryCards = added?.length
-  ? added
-      .map((e) => {
-        const isInc = e.type === "income";
-        const badge = isInc ? "🟢" : "🔴";
-        const label = isInc ? "Дохід" : "Витрата";
-        const ccy = e.currency || "€";
+// ——— Pills / Badges
+const pill = (text, tone = "neutral") => {
+  const toneMap = {
+    good:  "🟢",
+    bad:   "🔴",
+    warn:  "🟡",
+    info:  "🔷",
+    neutral: "⚪️",
+  };
+  return `${toneMap[tone] || toneMap.neutral}${nbsp}${text}`;
+};
 
-        return [
-          // дата разом із Дохід/Витрата в один рядок
-          `${badge}${nbsp}*${label}* ${dot} ${e.date}`,
-          `💶 Сума — *${money(e.gross, ccy)}*`,
-          `🧾 ПДВ — ${money(e.vat, ccy)}`,
-          `📂 Категорія — ${e.category || "—"}`,
-          `✍️ Опис — ${e.description || "—"}`
-        ].join("\n");
-      })
-      .join(`\n\n${softDivider}\n\n`)
+// ——— Labeled line (consistent pattern)
+const line = (emoji, label, value, boldValue = false) =>
+  `${emoji}${nbsp}${label}${nbsp}—${nbsp}${boldValue ? `*${value}*` : value}`;
+
+// ——— Entry cards
+const entryCards = (added && added.length)
+  ? added.map((e) => {
+      const isInc = e.type === "income";
+      const badge = isInc ? pill("Дохід", "good") : pill("Витрата", "bad");
+      const ccy = e.currency || "€";
+
+      const body = [
+        // header row
+        `${badge}${nbsp}${dot}${nbsp}${e.date}`,
+        line("💶", "Сума",          money(e.gross, ccy), true),
+        line("🧾", "ПДВ",           money(e.vat, ccy)),
+        line("📂", "Категорія",     e.category || "—"),
+        line("✍️", "Опис",          e.description || "—"),
+      ];
+
+      return [
+        boxTop,
+        `${boxMid} ${body[0].padEnd(26, " ")} ${boxMid}`,
+        `${boxMid} ${body[1].padEnd(26, " ")} ${boxMid}`,
+        `${boxMid} ${body[2].padEnd(26, " ")} ${boxMid}`,
+        `${boxMid} ${body[3].padEnd(26, " ")} ${boxMid}`,
+        `${boxMid} ${body[4].padEnd(26, " ")} ${boxMid}`,
+        boxBottom,
+      ].join("\n");
+    }).join(`\n\n`)
   : "_(Записів не додано)_";
 
-// Підсумок за місяць
-const monthSummary = [
-  `📊 *${yyyymm}*`,
-  `Дохід — *${money(M.incGross)}*`,
-  `Витрати — *${money(M.expGross)}*`,
-  boldDivider,
-  `Прибуток — *${money(M.profitGross)}*`,
-  softDivider,
-  `Зібрано ПДВ — ${money(M.incVAT)}`,
-  `Сплачено ПДВ — ${money(M.expVAT)}`,
-  `До сплати ПДВ — *${money(M.vatDue)}*`,
-  `Чистий після ПДВ — *${money(M.netAfterVAT)}*`
-].join("\n");
+// ——— Summary block (Month / Year)
+const makeSummaryBox = (titleEmoji, titleText, S, showNetCaption = "Чистий після ПДВ") => {
+  const rows = [
+    `${titleEmoji}${nbsp}*${titleText}*`,
+    line("📥", "Дохід",     money(S.incGross), true),
+    line("📤", "Витрати",   money(S.expGross), true),
+    hrSoft,
+    line("💼", "Прибуток",  money(S.profitGross), true),
+    hrSoft,
+    line("🟢", "Зібрано ПДВ", money(S.incVAT)),
+    line("🔴", "Сплачено ПДВ", money(S.expVAT)),
+    line("⚖️", "До сплати ПДВ", money(S.vatDue), true),
+    line("✅", showNetCaption, money(S.netAfterVAT), true),
+  ];
 
-// Підсумок за рік
-const yearSummary = [
-  `📈 *${yyyy}*`,
-  `Дохід — *${money(Y.incGross)}*`,
-  `Витрати — *${money(Y.expGross)}*`,
-  boldDivider,
-  `Прибуток — *${money(Y.profitGross)}*`,
-  softDivider,
-  `Зібрано ПДВ — ${money(Y.incVAT)}`,
-  `Сплачено ПДВ — ${money(Y.expVAT)}`,
-  `До сплати ПДВ — *${money(Y.vatDue)}*`,
-  `Чистий прибуток після ПДВ — *${money(Y.netAfterVAT)}*`
+  return [
+    boxTop,
+    `${boxMid} ${rows[0].padEnd(26, " ")} ${boxMid}`,
+    `${boxMid} ${rows[1].padEnd(26, " ")} ${boxMid}`,
+    `${boxMid} ${rows[2].padEnd(26, " ")} ${boxMid}`,
+    `${boxMid} ${"".padEnd(26, "─")} ${boxMid}`,
+    `${boxMid} ${rows[4].padEnd(26, " ")} ${boxMid}`,
+    `${boxMid} ${"".padEnd(26, "─")} ${boxMid}`,
+    `${boxMid} ${rows[6].padEnd(26, " ")} ${boxMid}`,
+    `${boxMid} ${rows[7].padEnd(26, " ")} ${boxMid}`,
+    `${boxMid} ${rows[8].padEnd(26, " ")} ${boxMid}`,
+    `${boxMid} ${rows[9].padEnd(26, " ")} ${boxMid}`,
+    boxBottom,
+  ].join("\n");
+};
+
+// ——— Build message
+const monthBox = makeSummaryBox("📊", yyyymm, M, "Чистий після ПДВ");
+const yearBox  = makeSummaryBox("📈", String(yyyy), Y, "Чистий прибуток після ПДВ");
+
+const header = [
+  "✅ *Записи додано*",
+  hrBold,
 ].join("\n");
 
 const message = [
-  "✅ *Записи додано*",
-  divider,
+  header,
   entryCards,
   "",
-  monthSummary,
+  monthBox,
   "",
-  yearSummary
+  yearBox
 ].join("\n");
 
 try {
   await tg("sendMessage", {
     chat_id: chatId,
     text: message,
-    parse_mode: "Markdown"
+    parse_mode: "Markdown",
   });
 } catch (err) {
   console.error("❌ sendMessage error:", err?.response?.data || err?.message || err);
