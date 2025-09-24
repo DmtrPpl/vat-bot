@@ -341,19 +341,21 @@ const thinsp = "\u202F";
 const divider = "━━━━━━━━━━━━━━━━━━━━━━━━";
 const softDivider = "────────────────────────";
 const boldDivider = "━━━━━━━━━━━━━━━";
+const dot = "·"; // ← додано: символ-розділювач
 
 const money = (amount, ccy = "€") => `${ccy}${thinsp}${num(amount)}`;
 
 // Картки доданих записів
-const entryCards = added.length
+const entryCards = added?.length
   ? added
-      .map((e, i) => {
+      .map((e) => {
         const isInc = e.type === "income";
         const badge = isInc ? "🟢" : "🔴";
         const label = isInc ? "Дохід" : "Витрата";
         const ccy = e.currency || "€";
 
         return [
+          // дата разом із Дохід/Витрата в один рядок
           `${badge}${nbsp}*${label}* ${dot} ${e.date}`,
           `💶 Сума — *${money(e.gross, ccy)}*`,
           `🧾 ПДВ — ${money(e.vat, ccy)}`,
@@ -402,11 +404,15 @@ const message = [
   yearSummary
 ].join("\n");
 
-await tg("sendMessage", {
-  chat_id: chatId,
-  text: message,
-  parse_mode: "Markdown"
-});
+try {
+  await tg("sendMessage", {
+    chat_id: chatId,
+    text: message,
+    parse_mode: "Markdown"
+  });
+} catch (err) {
+  console.error("❌ sendMessage error:", err?.response?.data || err?.message || err);
+}
 
 
 
