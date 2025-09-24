@@ -334,65 +334,84 @@ app.post("/webhook", async (req, res) => {
     const M = vatTotalsMonth(state.entries, yyyymm);
     const Y = vatTotalsYear(state.entries, yyyy);
 
- // ——— APPLE-STYLE CLEAN OUTPUT ———
+// ——— APPLE-STYLE CLEAN OUTPUT ———
+// Мінімалізм, чіткі секції, акуратні картки й вирівняні ключі
+
 const num = (n) => Number(n || 0).toFixed(2);
+const nbsp = "\u00A0";
+const thinsp = "\u202F";
+const dot = "·";
+const divider = "━━━━━━━━━━━━━━━━━━━━━━━━";
+const softDivider = "────────────────────────";
 
-// Картки для кожного доданого запису
-const entryCards = added
-  .map((e) => {
-    const badge = e.type === "income" ? "🟢" : "🔴";
-    const label = e.type === "income" ? "Дохід" : "Витрата";
-    return [
-      `${badge} *${label}*`,
-      `📅 ${e.date}`,
-      `💶 Сума: *${num(e.gross)} ${e.currency}*`,
-      `🧾 ПДВ: ${num(e.vat)}`,
-      `📂 Категорія: ${e.category}`,
-      e.description ? `✍️ Опис: ${e.description}` : `✍️ Опис: —`,
-    ].join("\n");
-  })
-  .join("\n\n");
+const money = (amount, ccy = "€") => `${ccy}${thinsp}${num(amount)}`;
 
-// Зведення за місяць
+// Картки доданих записів (пронумеровані)
+const entryCards = added.length
+  ? added
+      .map((e, i) => {
+        const isInc = e.type === "income";
+        const badge = isInc ? "🟢" : "🔴";
+        const label = isInc ? "Дохід" : "Витрата";
+        const ccy = e.currency || "€";
+
+        return [
+          `${badge}${nbsp}*${label}*${nbsp}${dot}${nbsp}#${i + 1}`,
+          `📅\n${e.date}`,
+          `💶 Сума — *${money(e.gross, ccy)}*`,
+          `🧾 ПДВ — ${money(e.vat, ccy)}`,
+          `📂 Категорія — ${e.category || "—"}`,
+          `✍️ Опис — ${e.description ? e.description : "—"}`
+        ].join("\n");
+      })
+      .join(`\n\n${softDivider}\n\n`)
+  : "_(Записів не додано)_";
+
+// Зведення за місяць (чіткі заголовки, великі літери)
 const monthSummary = [
   `📊 *Місяць ${yyyymm}*`,
-  `Дохід: ${num(M.incGross)}`,
-  `Витрати: ${num(M.expGross)}`,
-  `Прибуток: ${num(M.profitGross)}`,
-  `Зібрано ПДВ: ${num(M.incVAT)}`,
-  `Сплачено ПДВ: ${num(M.expVAT)}`,
-  `До сплати ПДВ: ${num(M.vatDue)}`,
-  `Чистий після ПДВ: ${num(M.netAfterVAT)}`,
+  `Дохід — *${money(M.incGross)}*`,
+  `Витрати — *${money(M.expGross)}*`,
+  `Прибуток — *${money(M.profitGross)}*`,
+  softDivider,
+  `Зібрано ПДВ — ${money(M.incVAT)}`,
+  `Сплачено ПДВ — ${money(M.expVAT)}`,
+  `До сплати ПДВ — *${money(M.vatDue)}*`,
+  `Чистий після ПДВ — *${money(M.netAfterVAT)}*`
 ].join("\n");
 
 // Зведення за рік
 const yearSummary = [
-  `📊 *Рік ${yyyy}*`,
-  `Дохід: ${num(Y.incGross)}`,
-  `Витрати: ${num(Y.expGross)}`,
-  `Прибуток: ${num(Y.profitGross)}`,
-  `Зібрано ПДВ: ${num(Y.incVAT)}`,
-  `Сплачено ПДВ: ${num(Y.expVAT)}`,
-  `До сплати ПДВ: ${num(Y.vatDue)}`,
-  `Чистий прибуток після ПДВ: ${num(Y.netAfterVAT)}`,
+  `📈 *Рік ${yyyy}*`,
+  `Дохід — *${money(Y.incGross)}*`,
+  `Витрати — *${money(Y.expGross)}*`,
+  `Прибуток — *${money(Y.profitGross)}*`,
+  softDivider,
+  `Зібрано ПДВ — ${money(Y.incVAT)}`,
+  `Сплачено ПДВ — ${money(Y.expVAT)}`,
+  `До сплати ПДВ — *${money(Y.vatDue)}*`,
+  `Чистий прибуток після ПДВ — *${money(Y.netAfterVAT)}*`
 ].join("\n");
 
 // Фінальне повідомлення
 const message = [
-  "✅ *Додано записи:*",
-  "",
+  "✅ *Записи додано*",
+  divider,
   entryCards,
   "",
+  "🗓️ *Зведення за місяць*",
   monthSummary,
   "",
-  yearSummary,
+  "🗂️ *Зведення за рік*",
+  yearSummary
 ].join("\n");
 
 await tg("sendMessage", {
   chat_id: chatId,
   text: message,
-  parse_mode: "Markdown",
+  parse_mode: "Markdown"
 });
+
 
 
     res.sendStatus(200);
